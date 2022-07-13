@@ -1,0 +1,60 @@
+[sources.vector_sensor_in]
+type = "vector"
+address = "0.0.0.0:9000"
+version = "2"
+
+[sinks.file_out]
+type = "file"
+inputs = [ "vector_sensor_in" ]
+compression = "gzip"
+path = "/vector_logs/vector-%Y-%m-%d.log"
+encoding.codec = "json"
+
+[transforms.to_json]
+type = "remap"
+inputs = ["vector_sensor_in"]
+source = '''
+. = parse_json!(string!(.message))
+'''
+
+[transforms.alert_filter]
+type = "filter"
+inputs = [ "to_json" ]
+condition = '.event_type == "alert"'
+
+[transforms.src_geoip]
+type = "geoip"
+inputs = [ "alert_filter" ]
+database = "/vector_logs/GeoLite2-City.mmdb"
+source = "src_ip"
+target = "src_geoip"
+
+[transforms.dst_geoip]
+type = "geoip"
+inputs = [ "src_geoip" ]
+database = "/vector_logs/GeoLite2-City.mmdb"
+source = "dest_ip"
+target = "dest_geoip"
+
+[sinks.humio_out]
+type = "humio_logs"
+inputs = [ "dst_geoip", "vector_sensor_in" ]
+endpoint = "https://cloud.community.humio.com"
+token = "no-lol"
+encoding.codec = "json"
+
+[sinks.my_sink_id]
+type = "redis"
+inputs = [ "dst_geoip" ]
+url = "redis://127.0.0.1:6379/0"
+key = "alerts"
+encoding.codec = "json"
+data_type = "channel"
+
+[sinks.blackhole_out]
+type = "blackhole"
+inputs = [ "vector_sensor_in" ]
+
+[sinks.blackhole_alert_out]
+type = "blackhole"
+inputs = [ "alert_filter" ]
