@@ -1,0 +1,11 @@
+[sources.in]
+type = "file"
+include = [ "/var/log/suricata/eve.json" ]
+read_from = "beginning"
+data_dir = "/tmp/"
+
+[sinks.out]
+type = "vector"
+inputs = [ "in" ]
+address = "10.147.20.90:9000"
+version = "2"
